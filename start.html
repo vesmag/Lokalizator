@@ -1,0 +1,218 @@
+<html>
+    <head>
+        <meta charset="utf-8" />
+		<title>Lokalizator</title>
+    </head>
+    <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.4.8/angular.js"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.2.5/angular-route.js"></script>
+    <link rel="stylesheet" type="text/css" href="style.css">
+    <body data-ng-app="myApp">
+        <script>
+            var myApp = angular.module('myApp', ['ngRoute'])
+            .config (function ($routeProvider) {
+                $routeProvider
+                    .when ('/', {
+                        controller: 'myController',
+                        templateUrl: 'partials/lokaliziraj.html'
+                    })
+                    .when ('/places', {
+                        controller: 'myController as cont',
+                        templateUrl: 'partials/places.html'
+                    })
+                    .otherwise ({redirectTo: '/'});
+            })
+            .controller ('myController', function ($scope, geoService, placesService) {
+                //incijalna funkcija, pronalazi nasu lokaciju ako jos nije (ako je geoService token false) te uz to, dobavlja mjesta u nasem okruzenju
+                $scope.do = function () {
+                    if (geoService.token !== true) geoService.init();
+                    $scope.places = placesService.getPlaces();
+                }
+
+                //funkcija za loadanje razlicitih pageva: salje u places service broj stranice i dobiva dio arraya koji odgovara toj stranici
+                $scope.load = function (page) {
+                    placesService.setPage(page);
+                    $scope.places = placesService.getPlaces();
+
+                    //disablanje/enablanje buttona
+                    switch(page) {
+                        case 1:
+                            $scope.prva = true;
+                            $scope.druga = false;
+                            $scope.treca = false;
+                            break;
+                        case 2:
+                            $scope.prva = false;
+                            $scope.druga = true;
+                            $scope.treca = false;
+                            break;
+                        case 3:
+                            $scope.prva = false;
+                            $scope.druga = false;
+                            $scope.treca = true;
+                    }
+                }
+
+
+                $scope.prva = true;
+                $scope.druga = false;
+                $scope.treca = false;
+
+                //pokazatelji ucitanosti stranica - dok se stranica ne ucita, gumb za odlazak na tu stranicu je disablean: njih moramo watchati eksplicitno jer se ne ispisuju u viewu
+                $scope.drugaUcitana = placesService.getLoaded().drugaUcitana;
+                $scope.trecaUcitana = placesService.getLoaded().trecaUcitana;
+
+                $scope.$watch (function() {
+                    return placesService.getLoaded().drugaUcitana;
+                }, function (newVal, oldVal) {
+                    $scope.drugaUcitana = placesService.getLoaded().drugaUcitana;
+                })
+
+                $scope.$watch (function() {
+                    return placesService.getLoaded().trecaUcitana;
+                }, function (newVal, oldVal) {
+                    $scope.trecaUcitana = placesService.getLoaded().trecaUcitana;
+                })
+
+                //filtriranje: postoje filteri za type i za name - ako su oba filtera prazna, vracamo true, ako nisu: provjeravamo dobiveni objekt u ovisnosti o aktivnim filterima i vracamo true samo ako je zadovoljio uvjete svih aktivnih filtera, inace vracamo false
+                this.filterByType = function(place) {
+                    var result = false;
+                    if (($scope.typeFilter === undefined || $scope.typeFilter === "no-filter") && $scope.nameFilter === undefined)
+                        result = true;
+                    if ($scope.typeFilter !== undefined && $scope.nameFilter !== undefined) {
+                        var nameFilter = $scope.nameFilter.toLowerCase();
+                        var placeName = place.name.toLowerCase();
+                        var filters = $scope.typeFilter.split("-");
+                        for (var i=0; i<filters.length; ++i)
+                            if (place.types.indexOf(filters[i]) !== -1) {
+                                if (placeName.indexOf(nameFilter) !== -1)
+                                    result = true;
+                            }
+                    }
+                    if ($scope.typeFilter !== undefined && $scope.nameFilter === undefined) {
+                        var filters = $scope.typeFilter.split("-");
+                        for (var i=0; i<filters.length; ++i)
+                            if (place.types.indexOf(filters[i]) !== -1) {
+                                result = true;
+                            }
+                    }
+                    else if ($scope.nameFilter !== undefined && ($scope.typeFilter === undefined || $scope.typeFilter === "no-filter")) {
+                        var nameFilter = $scope.nameFilter.toLowerCase();
+                        var placeName = place.name.toLowerCase();
+                        if (placeName.indexOf(nameFilter) !== -1)
+                            result = true;
+                    }
+
+                    return result;
+                }
+            })
+
+            //geoService trazi nasu trenutnu lokaciju i kad ju nade, poziva funkciju za dobivanje okolnih mjesta u placesServiceu
+            .service ("geoService", function(placesService) {
+                //navigator.geolocation.getCurrentPosition je funkcija iz Google maps API-ja koja poziva funkciju storePosition kad dohvati nasu lokaciju
+                this.init = function () {
+                    navigator.geolocation.getCurrentPosition (this.storePosition);
+                    token = true;
+                }
+
+                //kad dovrsi dobavljanje koordinata, storePosition poziva funkciju za nalazak okolnih lokala
+                this.storePosition = function (position) {
+                    location.lat = position.coords.latitude;
+                    location.lon = position.coords.longitude;
+                    placesService.findNearBy(location.lon, location.lat);
+                }
+
+                var location = {
+                    lat:0,
+                    lon:0
+                }
+                var token = false;
+            })
+
+            .service("placesService", function($rootScope) {
+                //funkcija u ovisnosti o dobivenom broju stranice vraca dio placesArraya koji odgovara toj stranici
+                this.returnPlacesByPage = function () {
+                    switch (page) {
+                        case 1:
+                            return placesArray.slice(0,20);
+                            break;
+                        case 2:
+                            return placesArray.slice(20,40);
+                            break;
+                        case 3:
+                            return placesArray.slice(40,60);
+                    }
+                }
+
+                this.getLoaded = function () {
+                    return loaded;
+                }
+
+                this.getPlaces = function (page) {
+                    return this.returnPlacesByPage(page);
+                }
+
+                this.setPage = function(number) {
+                    page = number;
+                }
+
+                //funkciju poziva geoService: ona s dobivenim koordinatima poziva nearbySearch funkciju iz Google maps API-ja koja zove callback funkciju
+                this.findNearBy = function(long, lati) {
+                    var service = new google.maps.places.PlacesService(document.createElement('div'));
+
+                    service.nearbySearch({
+                      location: {lat: lati, lng: long},
+                      radius: 1000
+                  }, this.callback);
+
+                }
+
+                //callback funkcija prima niz rezultata, status pretrage i pagination objekt koji sadrzi informacije o sljedecoj stranici rezultata
+                this.callback = function (results, status, pagination) {
+                    var service = new google.maps.places.PlacesService(document.createElement('div'));
+                    if (status === google.maps.places.PlacesServiceStatus.OK) {
+                      for (var i = 0; i < results.length; i++) {
+                          //filtered ovdje koristim zbog duplikata u results arrayu zbog kojih mi se cesto javljao error u ng-repeatu
+                          var filtered = placesArray.filter(function(place){
+                              return place.name === results[i].name;
+                          })
+                          //ako u placesArrayu nema rezultata s tim imenom, pushamo results[i] u placesArray
+                          if (filtered.length === 0)
+                            placesArray.push({
+                                name: results[i].name,
+                                types: results[i].types
+                            });
+                      }
+
+                      //dobivanje informacija o kolicini ucitanih rezultata (odnosno je li moguc prelazak na sljedecu stranicu)
+                      if (placesArray.length>20) {
+                          loaded.drugaUcitana = true;
+                          //ovdje je trebalo zvati digest cycle jer se sama varijabla nije updateala
+                          $rootScope.$digest();
+                      }
+                      if (placesArray.length>40) {
+                          loaded.trecaUcitana = true;
+                          $rootScope.$digest();
+                      }
+
+                       //ako postoji sljedeca stranica, pagination.nextPage() zove ponovno funkciju callback s novim results arrayem
+                      if (pagination.hasNextPage === true){
+                          pagination.nextPage();
+                      }
+                  }
+                }
+
+              var placesArray = new Array();
+              var page = 1;
+              var loaded = {
+                  drugaUcitana: false,
+                  trecaUcitana: false
+              }
+          })
+         </script>
+        <div class="all">
+             <h1>Lokalizator</h1>
+             <ng-view></ng-view>
+         </div>
+         <script type="text/javascript" src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBv4lrFlyaiWHPAz0V4jJBG_QoMT2fXmkM&libraries=places"></script>
+     </body>
+ </html>

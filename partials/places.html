@@ -1,0 +1,30 @@
+<div data-ng-init = "do()" class="places">
+    <div class="search-filter">
+        Pretraži na ovoj stranici:
+        <input type="text" ng-model="nameFilter"  /></br></br>
+        Filtriraj stranicu po kategoriji:
+        <select ng-model="typeFilter"></br>
+            <option value="lodging">Smještaj</option>
+            <option value="health-doctor-dentist-hospital-pharmacy">Zdravstvo</option>
+            <option value="cafe-bar">Kafići</option>
+            <option value="food-restaurant-bakery">Hrana</option>
+            <option value="store-clothing_store-convenience_store-department_store-electronics_store-furniture_store-hardware_store-home_goods_store-jewelry_store-liqour_store-shoe_store-shopping_mall">Trgovine</option>
+            <option value="atm-bank">Banke i bankomati</option>
+            <option value="beauty_salon">Salon ljepote</option>
+            <option value="gym">Teretane</option>
+            <option value="university-school">Obrazovanje</option>
+            <option value="library">Knjižnice</option>
+            <option value="museum">Muzeji</option>
+            <option value="car_repair-car_wash-car_rental-car_dealer">Auto-moto</option>
+            <option value="no-filter">PONIŠTI FILTER</option>
+        </select>
+    </div>
+    <ul>
+        <li  data-ng-repeat="place in places | filter:cont.filterByType">{{place.name}}</li>
+    </ul>
+    <div class="pages">
+        <button class="page-btn" ng-click = "load(1)" ng-disabled = "prva">1</button>
+        <button class="page-btn" ng-click = "load(2)" ng-disabled = "druga || drugaUcitana == false">2</button>
+        <button class="page-btn" ng-click = "load(3)" ng-disabled = "treca  || trecaUcitana == false">3</button>
+    </div>
+</div>
