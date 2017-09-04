@@ -11,4 +11,4 @@ Aplikacija je napravljena u AngularJS-u, a predstavlja rješenje zadatka dobiven
 
 Application was built in AngularJS. It is a solution to assignment I had to solve as a part of job application process. This is my first code written in Angular.
 
-*November 2016.*
+*November 2016*
